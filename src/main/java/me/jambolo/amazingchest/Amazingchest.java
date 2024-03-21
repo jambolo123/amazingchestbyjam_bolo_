@@ -32,7 +32,7 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
 
     private final Map<Player, Boolean> isCreatingChest = new HashMap<>();
     private final Map<Player, String> chestToCreate = new HashMap<>();
-    private final Map<Block, String> chestNames = new HashMap<>();
+    public final Map<Block, String> chestNames = new HashMap<>();
     private final Map<String, Inventory> chestGUIs = new HashMap<>();
     private File chestsFolder;
     private File configFile;
@@ -68,6 +68,10 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
         if (args.length == 0) {
             player.sendMessage(ChatColor.YELLOW + "Użyj: /amazingchest create <nazwa>");
             return true;
+        }
+        if (args[0].equalsIgnoreCase("key")) {
+            Key key = new Key(this);
+            key.key(sender, command, label, args);
         }
 
         if (args.length >= 2 && args[0].equalsIgnoreCase("create")) {
@@ -226,4 +230,3 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
         }
     }
 }
-
