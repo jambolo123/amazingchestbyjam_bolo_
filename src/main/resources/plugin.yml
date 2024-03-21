@@ -1,0 +1,7 @@
+name: amazingchest
+version: '${project.version}'
+main: me.jambolo.amazingchest.Amazingchest
+api-version: '1.20'
+commands:
+  amazingchest:
+

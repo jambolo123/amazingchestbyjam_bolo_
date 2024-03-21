@@ -1,0 +1,7 @@
+chest1:
+  location: 'world:10,64,10'
+  contents:
+    - iron_sword
+    - amount: 3
+      type: diamond
+    - diamond_pickaxe
