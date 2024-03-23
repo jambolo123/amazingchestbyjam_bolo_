@@ -1,9 +1,6 @@
 package me.jambolo.amazingchest;
 
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Material;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -17,10 +14,12 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -292,24 +291,98 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
             player.sendMessage(ChatColor.RED + "Nie możesz niszczyć skrzynek podczas tworzenia GUI!");
         }
     }
-
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         Inventory clickedInventory = event.getClickedInventory();
         Player player = (Player) event.getWhoClicked();
 
-        // Sprawdź, czy kliknięte GUI jest jednym z GUI skrzynek
-        if (clickedInventory != null && chestGUIs.containsValue(clickedInventory)) {
-            // Zablokuj przemieszczanie się przedmiotów tylko w GUI skrzynek
+        if (event.getClickedInventory() != null && ChatColor.stripColor(event.getView().getTitle()).startsWith("Wszystkie skrzynki")) {
             event.setCancelled(true);
+            ItemStack clickedItem = event.getCurrentItem();
+            if (clickedItem != null && clickedItem.getType() == Material.BARRIER) {
+                player.performCommand("amazingchest");
+            } else if (clickedItem != null && clickedItem.getType() == Material.CHEST) {
+                String chestName = ChatColor.stripColor(clickedItem.getItemMeta().getDisplayName());
+                openChestSettingsGUI(player, chestName);
+            }
         }
 
-        // Sprawdź, czy kliknięte GUI to GUI ustawień
-        if (event.getClickedInventory() != null && ChatColor.stripColor(event.getView().getTitle()).equals("Wszystkie skrzynki")) {
-            // Zablokuj przemieszczanie się przedmiotów w GUI ustawień
+        if (clickedInventory != null && ChatColor.stripColor(event.getView().getTitle()).startsWith("Ustawienia skrzynki")) {
             event.setCancelled(true);
         }
     }
+
+
+    private void openChestSettingsGUI(Player player, String chestName) {
+        Inventory chestSettingsGUI = Bukkit.createInventory(null, 54, ChatColor.DARK_GREEN + "Ustawienia skrzynki: " + chestName);
+
+        // Dodajemy żółtą obwódkę
+        ItemStack yellowGlass = new ItemStack(Material.YELLOW_STAINED_GLASS_PANE);
+        ItemMeta yellowGlassMeta = yellowGlass.getItemMeta();
+        if (yellowGlassMeta != null) {
+            yellowGlassMeta.setDisplayName(ChatColor.YELLOW + "");
+            yellowGlass.setItemMeta(yellowGlassMeta);
+        }
+
+        for (int i = 0; i < 54; i++) {
+            if (i < 9 || i >= 45 || i % 9 == 0 || (i + 1) % 9 == 0) {
+                chestSettingsGUI.setItem(i, yellowGlass);
+            }
+        }
+
+        // Dodajemy dodatkowe elementy
+        ItemStack tripwireHook = new ItemStack(Material.TRIPWIRE_HOOK);
+        ItemMeta tripwireHookMeta = tripwireHook.getItemMeta();
+        if (tripwireHookMeta != null) {
+            tripwireHookMeta.setDisplayName(ChatColor.GREEN + "Tripwire Hook");
+            tripwireHook.setItemMeta(tripwireHookMeta);
+        }
+        chestSettingsGUI.setItem(11, tripwireHook);
+
+        ItemStack clock = new ItemStack(Material.CLOCK);
+        ItemMeta clockMeta = clock.getItemMeta();
+        if (clockMeta != null) {
+            clockMeta.setDisplayName(ChatColor.GREEN + "Zegar");
+            clock.setItemMeta(clockMeta);
+        }
+        chestSettingsGUI.setItem(15, clock);
+
+        ItemStack cocoaBeans = new ItemStack(Material.COCOA_BEANS);
+        ItemMeta cocoaBeansMeta = cocoaBeans.getItemMeta();
+        if (cocoaBeansMeta != null) {
+            cocoaBeansMeta.setDisplayName(ChatColor.GREEN + "Brązowy barwnik");
+            cocoaBeans.setItemMeta(cocoaBeansMeta);
+        }
+        chestSettingsGUI.setItem(22, cocoaBeans);
+
+        ItemStack compass = new ItemStack(Material.COMPASS);
+        ItemMeta compassMeta = compass.getItemMeta();
+        if (compassMeta != null) {
+            compassMeta.setDisplayName(ChatColor.GREEN + "Kompas");
+            compass.setItemMeta(compassMeta);
+        }
+        chestSettingsGUI.setItem(30, compass);
+
+        ItemStack sign = new ItemStack(Material.OAK_SIGN);
+        ItemMeta signMeta = sign.getItemMeta();
+        if (signMeta != null) {
+            signMeta.setDisplayName(ChatColor.GREEN + "Tabliczka");
+            sign.setItemMeta(signMeta);
+        }
+        chestSettingsGUI.setItem(32, sign);
+
+        ItemStack barrier = new ItemStack(Material.BARRIER);
+        ItemMeta barrierMeta = barrier.getItemMeta();
+        if (barrierMeta != null) {
+            barrierMeta.setDisplayName(ChatColor.RED + "Powrót");
+            barrier.setItemMeta(barrierMeta);
+        }
+        chestSettingsGUI.setItem(53, barrier);
+
+        player.openInventory(chestSettingsGUI);
+    }
+
+
 
     private void openChestGUI(Player player, String chestName) {
         Inventory gui = chestGUIs.get(chestName);
@@ -541,4 +614,3 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
         }
     }
 }
-
