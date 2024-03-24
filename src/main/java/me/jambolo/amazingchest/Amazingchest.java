@@ -13,6 +13,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -282,16 +284,6 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
     }
 
     @EventHandler
-    public void onBlockBreak(BlockBreakEvent event) {
-        Player player = event.getPlayer();
-        Block brokenBlock = event.getBlock();
-
-        if (isCreatingChest.containsKey(player) && isCreatingChest.get(player)) {
-            event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "Nie możesz niszczyć skrzynek podczas tworzenia GUI!");
-        }
-    }
-    @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         Inventory clickedInventory = event.getClickedInventory();
         Player player = (Player) event.getWhoClicked();
@@ -309,6 +301,15 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
 
         if (clickedInventory != null && ChatColor.stripColor(event.getView().getTitle()).startsWith("Ustawienia skrzynki")) {
             event.setCancelled(true);
+            ItemStack clickedItem = event.getCurrentItem();
+            // Sprawdź, czy kliknięto prawym przyciskiem myszy
+            if (event.getClick() == ClickType.RIGHT) {
+                // Sprawdź, czy kliknięto na tripwire hook
+                if (clickedItem != null && clickedItem.getType() == Material.TRIPWIRE_HOOK) {
+                    String chestName = ChatColor.stripColor(event.getView().getTitle()).replace("Ustawienia skrzynki: ", "");
+                    giveKey(player, chestName, 1); // Dodanie klucza do skrzynki
+                }
+            }
         }
     }
 
@@ -330,14 +331,18 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
             }
         }
 
-        // Dodajemy dodatkowe elementy
         ItemStack tripwireHook = new ItemStack(Material.TRIPWIRE_HOOK);
         ItemMeta tripwireHookMeta = tripwireHook.getItemMeta();
         if (tripwireHookMeta != null) {
-            tripwireHookMeta.setDisplayName(ChatColor.GREEN + "Tripwire Hook");
+            tripwireHookMeta.setDisplayName(ChatColor.GOLD + "" + ChatColor.BOLD + "Keys");
+            List<String> lore = new ArrayList<>();
+            lore.add(ChatColor.GRAY + "" + ChatColor.ITALIC + "Kliknij, PPM aby przywołać klucz!");
+            lore.add(ChatColor.GRAY + "" + ChatColor.ITALIC + "Kliknij, LPM aby edytować klucz!");
+            tripwireHookMeta.setLore(lore);
             tripwireHook.setItemMeta(tripwireHookMeta);
         }
-        chestSettingsGUI.setItem(11, tripwireHook);
+
+        chestSettingsGUI.setItem(11, tripwireHook); // Dodajemy przedmiot Tripwire Hook
 
         ItemStack clock = new ItemStack(Material.CLOCK);
         ItemMeta clockMeta = clock.getItemMeta();
@@ -347,7 +352,7 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
         }
         chestSettingsGUI.setItem(15, clock);
 
-        ItemStack cocoaBeans = new ItemStack(Material.COCOA_BEANS);
+        ItemStack cocoaBeans = new ItemStack(Material.BROWN_DYE);
         ItemMeta cocoaBeansMeta = cocoaBeans.getItemMeta();
         if (cocoaBeansMeta != null) {
             cocoaBeansMeta.setDisplayName(ChatColor.GREEN + "Brązowy barwnik");
@@ -381,9 +386,6 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
 
         player.openInventory(chestSettingsGUI);
     }
-
-
-
     private void openChestGUI(Player player, String chestName) {
         Inventory gui = chestGUIs.get(chestName);
         if (gui != null) {
@@ -528,16 +530,13 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
         ItemMeta meta = keyItem.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(ChatColor.GREEN + "Klucz do skrzynki: " + chestName);
-            List<String> lore = new ArrayList<>();
-            lore.add(ChatColor.GRAY + "Klucz do specjalnej skrzyni");
-            lore.add(ChatColor.GRAY + "Nazwa: " + chestName);
-            lore.add(ChatColor.GRAY + "Klucz: " + key);
-            meta.setLore(lore);
             keyItem.setItemMeta(meta);
         }
+        keyItem.getItemMeta().getPersistentDataContainer().set(new NamespacedKey(this, "chestKey"), PersistentDataType.STRING, chestName); // Przypisanie nazwy skrzynki do klucza
         player.getInventory().addItem(keyItem);
         player.sendMessage(ChatColor.GREEN + "Otrzymałeś klucz do skrzyni " + chestName + " (" + amount + "x)");
     }
+
 
     private void consumeKey(Player player, ItemStack keyItem) {
         ItemStack[] contents = player.getInventory().getContents();
