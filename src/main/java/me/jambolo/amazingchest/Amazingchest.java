@@ -8,6 +8,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -23,10 +24,14 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.block.Chest;
+
 
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+
+import static jdk.javadoc.internal.doclets.formats.html.markup.HtmlStyle.title;
 
 
 public class Amazingchest extends JavaPlugin implements CommandExecutor, Listener {
@@ -126,19 +131,34 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
             }
 
             if (chestGUIs.containsKey(chestName)) {
-                String key = generateRandomKey();
-                chestKeys.put(chestName, key);
-                ItemStack keyItem = new ItemStack(Material.TRIPWIRE_HOOK, amount);
+                String key = chestKeys.getOrDefault(chestName, "TRIPWIRE_HOOK"); // Pobranie klucza przypisanego do skrzynki, domyślnie TRIPWIRE_HOOK
+                ItemStack keyItem = new ItemStack(Material.valueOf(key), amount);
                 ItemMeta meta = keyItem.getItemMeta();
                 if (meta != null) {
                     meta.setDisplayName(ChatColor.GREEN + "Klucz do skrzynki: " + chestName);
                     keyItem.setItemMeta(meta);
+                    targetPlayer.getInventory().addItem(keyItem);
+                    player.sendMessage(ChatColor.GREEN + "Dodałeś " + amount + " kluczy do skrzynki " + chestName + " dla gracza " + playerName);
+                } else {
+                    player.sendMessage(ChatColor.RED + "Nie można utworzyć klucza dla skrzynki " + chestName);
                 }
-                targetPlayer.getInventory().addItem(keyItem);
-                player.sendMessage(ChatColor.GREEN + "Dodałeś " + amount + " kluczy do skrzynki " + chestName + " dla gracza " + playerName);
             } else {
                 player.sendMessage(ChatColor.RED + "Skrzynia o nazwie " + chestName + " nie istnieje lub nie została jeszcze utworzona!");
             }
+            return true;
+        }
+
+        if (args.length == 2 && args[0].equalsIgnoreCase("editkey")) {
+            ItemStack handItem = player.getInventory().getItemInMainHand();
+            if (handItem == null || handItem.getType() == Material.AIR) {
+                player.sendMessage(ChatColor.RED + "Trzymasz pusty przedmiot w ręce!");
+                return true;
+            }
+
+            Material newKeyMaterial = handItem.getType();
+            String newKey = newKeyMaterial.name();
+            chestKeys.put(args[1], newKey);
+            player.sendMessage(ChatColor.GREEN + "Pomyślnie zedytowano klucz dla skrzynki " + args[1]);
             return true;
         }
 
@@ -149,6 +169,8 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
 
         return false;
     }
+
+
     private boolean removeChest(String chestName) {
         File chestFile = new File(chestsFolder, chestName + ".yml");
         if (chestFile.exists()) {
@@ -282,35 +304,81 @@ public class Amazingchest extends JavaPlugin implements CommandExecutor, Listene
         }
         return glassPane;
     }
-
-    @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        Inventory clickedInventory = event.getClickedInventory();
         Player player = (Player) event.getWhoClicked();
+        Inventory inv = event.getInventory();
+        ItemStack clickedItem = event.getCurrentItem();
 
-        if (event.getClickedInventory() != null && ChatColor.stripColor(event.getView().getTitle()).startsWith("Wszystkie skrzynki")) {
-            event.setCancelled(true);
-            ItemStack clickedItem = event.getCurrentItem();
-            if (clickedItem != null && clickedItem.getType() == Material.BARRIER) {
-                player.performCommand("amazingchest");
-            } else if (clickedItem != null && clickedItem.getType() == Material.CHEST) {
-                String chestName = ChatColor.stripColor(clickedItem.getItemMeta().getDisplayName());
-                openChestSettingsGUI(player, chestName);
-            }
-        }
+        if (inv != null && inv.getHolder() instanceof Chest) {
+            Chest chest = (Chest) inv.getHolder();
+            String chestName = chest.getCustomName();
 
-        if (clickedInventory != null && ChatColor.stripColor(event.getView().getTitle()).startsWith("Ustawienia skrzynki")) {
             event.setCancelled(true);
-            ItemStack clickedItem = event.getCurrentItem();
-            // Sprawdź, czy kliknięto prawym przyciskiem myszy
-            if (event.getClick() == ClickType.RIGHT) {
-                // Sprawdź, czy kliknięto na tripwire hook
-                if (clickedItem != null && clickedItem.getType() == Material.TRIPWIRE_HOOK) {
-                    String chestName = ChatColor.stripColor(event.getView().getTitle()).replace("Ustawienia skrzynki: ", "");
-                    giveKey(player, chestName, 1); // Dodanie klucza do skrzynki
+
+            if (clickedItem != null && clickedItem.getType() != Material.AIR) {
+                if (chestKeys.containsKey(chestName)) {
+                    String keyName = chestKeys.get(chestName);
+                    ItemMeta meta = clickedItem.getItemMeta();
+                    if (meta != null) {
+                        String itemName = meta.getDisplayName();
+                        List<String> itemLore = meta.getLore();
+                        if (itemName != null && itemName.equals(ChatColor.GREEN + "Klucz do skrzynki: " + chestName)) {
+                            Material itemType = clickedItem.getType(); // Poprawka: Pobierz materiał przedmiotu
+                            String itemKeyName = itemType.name(); // Poprawka: Pobierz nazwę materiału przedmiotu
+                            if (itemLore != null && !itemLore.isEmpty()) {
+                                for (String line : itemLore) {
+                                    itemKeyName += "_" + line;
+                                }
+                            }
+                            if (itemKeyName.equals(keyName)) {
+                                // Klucz pasuje, otwórz skrzynię
+                                inv.setItem(event.getRawSlot(), null); // Usunięcie klucza z ekwipunku gracza
+                                openChestGUI(player, chestName);
+                            } else {
+                                player.sendMessage(ChatColor.RED + "Ten przedmiot nie jest kluczem do tej skrzynki.");
+                            }
+                        } else {
+                            player.sendMessage(ChatColor.RED + "Ten przedmiot nie jest kluczem do tej skrzynki.");
+                        }
+                    }
                 }
             }
         }
+    }
+
+
+    private void setNewKey(Player player, String chestName, ItemStack keyItem) {
+        if (keyItem != null && keyItem.getType() != Material.AIR) {
+            // Zapisz typ i meta-dane przedmiotu jako nowy klucz dla skrzynki
+            String key = keyItem.getType().toString();
+            ItemMeta meta = keyItem.getItemMeta();
+            if (meta != null) {
+                key += ":" + meta.serialize().toString(); // Dodaj meta-dane do klucza
+            }
+            chestKeys.put(chestName, key);
+
+            // Aktualizuj plik konfiguracyjny lub inne odpowiednie miejsce do zapisywania kluczy
+            saveKeysConfig();
+
+            player.sendMessage(ChatColor.GREEN + "Ustawiono nowy klucz dla skrzynki " + chestName);
+        } else {
+            player.sendMessage(ChatColor.RED + "Trzymasz pusty przedmiot w ręce!");
+        }
+    }
+
+
+    private void openEditKeyGUI(Player player, String chestName) {
+        Inventory editKeyGUI = Bukkit.createInventory(null, 9, ChatColor.BLUE + "Edycja klucza: " + chestName);
+
+        ItemStack setKeyItem = new ItemStack(Material.DIAMOND_SWORD); // Przykładowy przedmiot do ustawienia klucza
+        ItemMeta setKeyMeta = setKeyItem.getItemMeta();
+        if (setKeyMeta != null) {
+            setKeyMeta.setDisplayName(ChatColor.GREEN + "Ustaw nowy klucz"); // Nazwa przedmiotu w GUI
+            setKeyItem.setItemMeta(setKeyMeta);
+        }
+        editKeyGUI.setItem(4, setKeyItem); // Umieść przedmiot w slocie 4
+
+        player.openInventory(editKeyGUI);
     }
 
 
